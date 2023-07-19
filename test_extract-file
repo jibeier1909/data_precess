@@ -1,0 +1,237 @@
+import xlwt,xlrd
+from xlutils.copy import copy
+import openpyxl
+###这个有大问题，最好还是用openpyxl,因为xls最大只有65536行，这个数据有很多行
+#定义电流
+hppc_0p5C=53
+hppc_1C=106
+CC=hppc_1C#定义电流值，这个一定要改
+#读取OCV数据，6、……这些工况对应的是OCV搁置后的存放数据
+initial=278#初始工况值
+initial_SOC=[]#放置调整soc后静置工况的工步值
+soc_num=9#隔多少个取soc的值，因为从90%-10%，所以一共有9个点
+interval=6#下个工况取值与这个工况的差值
+for i in range(soc_num):
+    initial_SOC.append(initial)
+    initial=initial+interval
+TIME_INDEX=2#指定时间所在的列数
+V_INDEX=5#指定电压所在的列数
+STEP_INDEX=6#指定工步所在的列数
+#定义文件名
+file_path = 'Y:\work\HPPC\data_0419\hppc_tunnel3_battery1//five_0p5c_30s'
+subfile='diyun'#子文件的文件名，根据实际情况来写的，不是必须
+resource_name='tunnel3_battery1_001_3~2'#初始计算文件名
+#保存的文件名
+result_name='%s_manage.xls'%resource_name
+
+#合并路径名
+resource_path='%s\%s\%s.xlsx'%(file_path,subfile,resource_name)
+result_path='%s\%s\%s'%(file_path,subfile,result_name)
+
+#打开文件
+resource_temp=xlrd.open_workbook(resource_path)
+#指定工作表
+resource_sheet = resource_temp.sheet_by_index(2)#打开初始文件所在工作表
+#获取行数、列数
+resource_nrows=resource_sheet.nrows
+resource_ncols=resource_sheet.ncols
+#新建表格
+new_workbook=xlwt.Workbook('utf-8')
+result_sheet=new_workbook.add_sheet('result')
+ocv_sheet=new_workbook.add_sheet('ocv')
+discharge_sheet=new_workbook.add_sheet('discharge')
+discharge_rest_sheet=new_workbook.add_sheet('discharge_rest')
+charge_sheet=new_workbook.add_sheet('charge')
+charge_rest_sheet=new_workbook.add_sheet('charge_rest')
+mix_sheet=new_workbook.add_sheet('mix_rest')
+#保存第一行数据
+
+#定义结果行
+result_cols=['SOC','OCV','R0','R1','T1','R2','T2']
+#定义结果列
+result_rows=['90%','80%','70%','60%','50%','40%','30%','20%','10%']
+
+#保存结果表头数据
+for i in range(len(result_cols)):
+    result_sheet.write(0,i,result_cols[i])
+for i in range(1,len(result_rows)+1):
+    result_sheet.write(i, 0, result_rows[i-1])
+
+
+#保存ocv数据
+ocv_time=[]#定义放置ocv的二维列表
+ocv_voltage=[]
+for i in range(soc_num):
+    ocv_time.append([])
+    ocv_voltage.append([])
+
+#保存OCV数据给二维列表
+for i in range(1,resource_nrows):
+    for j in range(len(initial_SOC)):
+        if resource_sheet.cell(i,STEP_INDEX).value == initial_SOC[j]:
+            ocv_time[j].append(resource_sheet.cell(i,TIME_INDEX).value)
+            ocv_voltage[j].append(resource_sheet.cell(i,V_INDEX).value)
+
+#保存ocv表头数据
+for i in range(len(initial_SOC)):
+    ocv_sheet.write(0,2*i,result_rows[i])
+    ocv_sheet.write(0,2*i+1,result_rows[i])
+    ocv_sheet.write(1, 2*i, 'time')
+    ocv_sheet.write(1, 2*i+1, 'voltage')
+#保存ocv静置的时间和电压给ocv表格
+for m in range(len(initial_SOC)):
+    for k in range(len(ocv_time[m])):
+        ocv_sheet.write(k+2,2*m,ocv_time[m][k])
+        ocv_sheet.write(k + 2, 2*m+1, ocv_voltage[m][k])
+
+#定义放电数据列表
+discharge_time=[]
+discharge_voltage=[]
+for i in range(len(initial_SOC)):
+    discharge_time.append([])
+    discharge_voltage.append([])
+
+#保存数据给放电数据列表
+for i in range(1,resource_nrows):
+    for j in range(len(initial_SOC)):
+        if resource_sheet.cell(i,STEP_INDEX).value == initial_SOC[j]+1:
+            discharge_time[j].append(resource_sheet.cell(i, TIME_INDEX).value)
+            discharge_voltage[j].append(resource_sheet.cell(i, V_INDEX).value)
+#保存表头
+for i in range(len(result_rows)):
+    discharge_sheet.write(0,2*i,result_rows[i])
+    discharge_sheet.write(0,2*i+1,result_rows[i])
+    discharge_sheet.write(1, 2*i, 'time')
+    discharge_sheet.write(1, 2*i+1, 'voltage')
+#保存数据给表格
+for j in range(len(initial_SOC)):
+    for k in range(len(discharge_time[j])):
+        discharge_sheet.write(k+2, 2*j, discharge_time[j][k])
+        discharge_sheet.write(k + 2, 2*j+1, discharge_voltage[j][k])
+
+#定义放电静置数据列表
+discharge_rest_time=[]
+discharge_rest_v=[]
+for i in range(len(initial_SOC)):
+    discharge_rest_time.append([])
+    discharge_rest_v.append([])
+#保存数据到列表
+for i in range(1,resource_nrows):
+    for j in range(len(initial_SOC)):
+        if resource_sheet.cell(i,STEP_INDEX).value == initial_SOC[j]+2:
+            discharge_rest_time[j].append(resource_sheet.cell(i,TIME_INDEX).value)
+            discharge_rest_v[j].append(resource_sheet.cell(i, V_INDEX).value)
+#保存表头数据
+for i in range(len(result_rows)):
+    discharge_rest_sheet.write(0,2*i,result_rows[i])
+    discharge_rest_sheet.write(0,2*i+1,result_rows[i])
+    discharge_rest_sheet.write(1, 2*i, 'time')
+    discharge_rest_sheet.write(1, 2*i+1, 'voltage')
+#保存数据到列表
+for j in range(len(initial_SOC)):
+    for k in range(len(discharge_rest_time[j])):
+        discharge_rest_sheet.write(k+2, 2*j, discharge_rest_time[j][k])
+        discharge_rest_sheet.write(k + 2, 2*j+1, discharge_rest_v[j][k])
+
+
+#定义充电数据列表
+charge_time=[]
+charge_v=[]
+for i in range(len(initial_SOC)):
+    charge_time.append([])
+    charge_v.append([])
+#保存数据到列表
+for i in range(1,resource_nrows):
+    for j in range(len(initial_SOC)):
+        if resource_sheet.cell(i,STEP_INDEX).value == initial_SOC[j]+3:
+            charge_time[j].append(resource_sheet.cell(i, TIME_INDEX).value)
+            charge_v[j].append(resource_sheet.cell(i, V_INDEX).value)
+#保存表头数据
+for i in range(len(result_rows)):
+    charge_sheet.write(0,2*i,result_rows[i])
+    charge_sheet.write(0,2*i+1,result_rows[i])
+    charge_sheet.write(1, 2*i, 'time')
+    charge_sheet.write(1, 2*i+1, 'voltage')
+#保存数据到列表
+for j in range(len(initial_SOC)):
+    for k in range(len(charge_time[j])):
+        charge_sheet.write(k+2, 2*j, charge_time[j][k])
+        charge_sheet.write(k + 2, 2*j+1, charge_v[j][k])
+
+#定义数据列表
+charge_rest_time=[]
+charge_rest_v=[]
+for i in range(len(initial_SOC)):
+    charge_rest_time.append([])
+    charge_rest_v.append([])
+#保存数据到列表
+for i in range(1,resource_nrows):
+    for j in range(len(initial_SOC)):
+        if resource_sheet.cell(i,STEP_INDEX).value == initial_SOC[j]+4:
+            charge_rest_time[j].append(resource_sheet.cell(i,TIME_INDEX).value)
+            charge_rest_v[j].append(resource_sheet.cell(i, V_INDEX).value)
+#定义表头数据
+for i in range(len(result_rows)):
+    charge_rest_sheet.write(0,2*i,result_rows[i])
+    charge_rest_sheet.write(0,2*i+1,result_rows[i])
+    charge_rest_sheet.write(1, 2*i, 'time')
+    charge_rest_sheet.write(1, 2*i+1, 'voltage')
+#保存数据到列表
+for j in range(len(initial_SOC)):
+    for k in range(len(charge_rest_time[j])):
+        charge_rest_sheet.write(k+2, 2*j, charge_rest_time[j][k])
+        charge_rest_sheet.write(k + 2, 2*j+1, charge_rest_v[j][k])
+
+#定义数据列表
+mix_time=[]
+discharge_rest_time2=[]
+charge_time2=[]
+charge_rest_time2=[]
+mix_v=[]
+for i in range(len(initial_SOC)):
+    mix_time.append([])
+    discharge_rest_time2.append([])
+    charge_time2.append([])
+    charge_rest_time2.append([])
+    mix_v.append([])
+#修改时间
+for i in range(len(initial_SOC)):
+    for j in range(len(discharge_rest_time[i])):
+        discharge_rest_time2[i].append(discharge_rest_time[i][j]+discharge_time[i][-1])
+    for j in range(len(charge_time[i])):
+        charge_time2[i].append(charge_time[i][j]+discharge_rest_time2[i][-1])
+    for j in range(len(charge_rest_time[i])):
+        charge_rest_time2[i].append(charge_rest_time[i][j]+charge_time2[i][-1])
+    mix_time[i]=discharge_time[i]+discharge_rest_time2[i]+charge_time2[i]+charge_rest_time2[i]
+    mix_v[i]=discharge_voltage[i]+discharge_rest_v[i]+charge_v[i]+charge_rest_v[i]
+#定义表头数据
+for i in range(len(result_rows)):
+    mix_sheet.write(0,2*i,result_rows[i])
+    mix_sheet.write(0,2*i+1,result_rows[i])
+    mix_sheet.write(1, 2*i, 'time')
+    mix_sheet.write(1, 2*i+1, 'voltage')
+#保存数据到列表
+for j in range(len(initial_SOC)):
+    for k in range(len(mix_time[j])):
+        mix_sheet.write(k+2, 2*j, mix_time[j][k])
+        mix_sheet.write(k + 2, 2*j+1, mix_v[j][k])
+
+#保存ocv数据
+for i in range(len(initial_SOC)):
+    result_sheet.write(i+1, 1, ocv_voltage[i][-1])
+#计算并输出R0
+R0=[]
+discharge_dif=[]
+charge_dif=[]
+#计算R0
+for i in range(len(initial_SOC)):
+    discharge_dif.append(ocv_voltage[i][-1]-discharge_voltage[i][0])
+    charge_dif.append(charge_v[i][0]-discharge_rest_v[i][-1])
+    R0.append((abs(discharge_dif[i])+abs(charge_dif[i]))/(CC))
+#保存R0
+for i in range(len(initial_SOC)):
+    result_sheet.write(i+1, 2, R0[i])
+#保存文件
+new_workbook.save(result_path)
+
+#关闭文件
